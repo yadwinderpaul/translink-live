@@ -5,6 +5,8 @@ import './index.css'
 import Loader from './components/Loader'
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN
+const MAP_STYLE = 'mapbox://styles/mapbox/streets-v9'
+const busLocationsData = {}
 
 class App extends Component {
   constructor (props) {
@@ -24,11 +26,14 @@ class App extends Component {
     }
 
     // define refs
-    this.appContainer = React.createRef()
+    this.appRef = React.createRef()
+    this.mapRef = React.createRef()
+
+    this.map = null
   }
 
   componentDidMount () {
-    const node = this.appContainer.current || {}
+    const node = this.appRef.current || {}
     const width = node.scrollWidth || 400
     const height = node.scrollHeight || 400
     this.setState({
@@ -43,6 +48,40 @@ class App extends Component {
 
   mapLoaded () {
     this.setState({ mapLoaded: true })
+    this.map = this.mapRef.current &&
+      this.mapRef.current.getMap &&
+      this.mapRef.current.getMap()
+    this.addDataLayer()
+  }
+
+  addDataLayer () {
+    this.map.addSource('bus-locations', {
+      type: 'geojson',
+      data: busLocationsData
+    })
+    this.map.addLayer({
+      id: 'bus-locations',
+      source: 'bus-locations',
+      type: 'symbol',
+      layout: {
+        'icon-image': '{icon}-15',
+        'text-field': '{title}',
+        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+        'text-offset': [0, 0.6],
+        'text-anchor': 'top'
+      }
+    })
+
+    this.updateData(this.map)
+  }
+
+  updateData (map) {
+    function animateMarker (timestamp) {
+      map.getSource('bus-locations').setData(busLocationsData)
+      window.requestAnimationFrame(animateMarker)
+    }
+
+    animateMarker(0)
   }
 
   handleZoomInClick (event) {
@@ -60,7 +99,7 @@ class App extends Component {
     this.setState({
       viewport: {
         ...this.state.viewport,
-        zoom: (zoom > 6) ? zoom - 1 : 6
+        zoom: (zoom > 4) ? zoom - 1 : 4
       }
     })
   }
@@ -69,10 +108,12 @@ class App extends Component {
     return (
       <div className="App">
         <div className="App-margin App-header">
-          Spare Labs
+          Translink Live
         </div>
-        <div className="App-container" ref={this.appContainer}>
+        <div className="App-container" ref={this.appRef}>
           <ReactMapGL
+            ref={this.mapRef}
+            mapStyle={MAP_STYLE}
             {...this.state.viewport}
             mapboxApiAccessToken={TOKEN}
             onViewportChange={(viewport) => this.setState({viewport})}
