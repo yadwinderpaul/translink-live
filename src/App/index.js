@@ -11,7 +11,7 @@ const mapStateToProps = (state, ownProps) => {
       }
     }),
     updatedAt: state.updatedAt,
-    isLoading: state.status === 'LOADING'
+    status: state.status
   }
 }
 

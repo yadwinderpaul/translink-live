@@ -11,6 +11,7 @@ const INIT_GEO_JSON = {
   type: 'FeatureCollection',
   features: []
 }
+const POLLING_INTERVAL_IN_SECONDS = 10
 
 function mapCoordinatesToGeoJson (coordinates = []) {
   return {
@@ -56,6 +57,7 @@ class App extends Component {
 
   /**
    * make map full screen
+   * when component mounted on dom
    */
   componentDidMount () {
     const node = this.appRef.current || {}
@@ -73,7 +75,7 @@ class App extends Component {
 
   /**
    * update map with latest data
-   * when updatedAt changes
+   * when busCoordinates updatedAt changes
    */
   componentDidUpdate (prevProps) {
     if (this.props.updatedAt !== prevProps.updatedAt) {
@@ -84,15 +86,31 @@ class App extends Component {
     }
   }
 
-  mapLoaded () {
+  _getStatusText () {
+    const time = this.props.updatedAt.toLocaleString().split(', ')[1]
+    let text = `Updated At: ${time}`
+    if (this.props.status === 'INIT') {
+      text = 'Initializing...'
+    } else if (this.props.status === 'LOADING') {
+      text = 'Getting Data...'
+    } else if (this.props.status === 'ERRORED') {
+      text = 'Error in Updating...'
+    }
+    return text
+  }
+
+  /**
+   * called when visible map tiles are loaded
+   */
+  handleMapLoad () {
     this.setState({ mapLoaded: true })
+
+    // save reference to map instance
     this.map = this.mapRef.current &&
       this.mapRef.current.getMap &&
       this.mapRef.current.getMap()
-    this._addDataLayer()
-  }
 
-  _addDataLayer () {
+    // add geojson data layer
     this.map.addSource('bus-locations', {
       type: 'geojson',
       data: INIT_GEO_JSON
@@ -103,10 +121,22 @@ class App extends Component {
       type: 'symbol',
       layout: { 'icon-image': 'bus-11' }
     })
+
+    // start data polling
+    this._updateBusLocations()
   }
 
-  handleUpdateClick (event) {
-    this.props.fetchBuses()
+  async _updateBusLocations () {
+    await this.props.fetchBuses()
+    if (this.props.status !== 'ERRORED') {
+      setTimeout(() => {
+        this._updateBusLocations()
+      }, POLLING_INTERVAL_IN_SECONDS * 1000)
+    }
+  }
+
+  handleRetryClick (event) {
+    this._updateBusLocations()
   }
 
   handleZoomInClick (event) {
@@ -132,8 +162,22 @@ class App extends Component {
   render () {
     return (
       <div className="App">
-        <div className="App-margin App-header">
-          Translink Live
+        <div className="App-margin header">
+          <div className="title">
+            Translink Live
+          </div>
+          <div className="info">
+            {this._getStatusText()}
+            {
+              this.props.status === 'ERRORED'
+                ? <button
+                  className="ml-10"
+                  onClick={this.handleRetryClick.bind(this)}>
+                  Retry
+                </button>
+                : ''
+            }
+          </div>
         </div>
         <div className="App-container" ref={this.appRef}>
           <ReactMapGL
@@ -142,7 +186,7 @@ class App extends Component {
             {...this.state.viewport}
             mapboxApiAccessToken={TOKEN}
             onViewportChange={(viewport) => this.setState({viewport})}
-            onLoad={() => this.mapLoaded()}
+            onLoad={() => this.handleMapLoad()}
           />
           {
             !this.state.mapLoaded
@@ -153,10 +197,13 @@ class App extends Component {
         </div>
         <div className="App-margin">
           <div className="button-group">
-            <button onClick={this.handleZoomInClick.bind(this)}>Zoom In</button>
-            <button onClick={this.handleZoomOutClick.bind(this)}>Zoom Out</button>
+            <button onClick={this.handleZoomInClick.bind(this)}>
+              Zoom In
+            </button>
+            <button onClick={this.handleZoomOutClick.bind(this)}>
+              Zoom Out
+            </button>
           </div>
-          <button onClick={this.handleUpdateClick.bind(this)}>Update</button>
         </div>
       </div>
     )
@@ -165,8 +212,8 @@ class App extends Component {
 
 App.propTypes = {
   busCoordinates: PropTypes.array,
-  updatedAt: PropTypes.number,
-  isLoading: PropTypes.bool,
+  updatedAt: PropTypes.instanceOf(Date),
+  status: PropTypes.string,
   fetchBuses: PropTypes.func
 }
 

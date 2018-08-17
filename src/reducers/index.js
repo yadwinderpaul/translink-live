@@ -1,7 +1,7 @@
 const initialState = {
   status: 'INIT', // INIT, LOADING, LOADED, ERRORED
   buses: [],
-  updatedAt: (new Date()).getTime()
+  updatedAt: new Date()
 }
 
 const store = (state = initialState, action) => {
@@ -24,8 +24,8 @@ const store = (state = initialState, action) => {
     case 'UPDATE_BUSES':
       return {
         ...state,
-        buses: action.buses,
-        updatedAt: (new Date()).getTime()
+        buses: action.buses || [],
+        updatedAt: new Date()
       }
     default:
       return state
