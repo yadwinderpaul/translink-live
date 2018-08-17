@@ -4,9 +4,13 @@ import App from './component'
 
 const mapStateToProps = (state, ownProps) => {
   return {
-    busLocations: state.buses.map(bus => {
-      return [bus.Longitude, bus.Latitude]
+    busCoordinates: state.buses.map(bus => {
+      return {
+        latitude: bus.Latitude,
+        longitude: bus.Longitude
+      }
     }),
+    updatedAt: state.updatedAt,
     isLoading: state.status === 'LOADING'
   }
 }

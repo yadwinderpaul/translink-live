@@ -7,6 +7,28 @@ import Loader from './components/Loader'
 
 const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN
 const MAP_STYLE = 'mapbox://styles/mapbox/streets-v9'
+const INIT_GEO_JSON = {
+  type: 'FeatureCollection',
+  features: []
+}
+
+function mapCoordinatesToGeoJson (coordinates = []) {
+  return {
+    type: 'FeatureCollection',
+    features: coordinates.map(coordinate => {
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [
+            coordinate.longitude,
+            coordinate.latitude
+          ]
+        }
+      }
+    })
+  }
+}
 
 class App extends Component {
   constructor (props) {
@@ -21,7 +43,7 @@ class App extends Component {
         height: 400,
         latitude: 49.2577143,
         longitude: -123.1939437,
-        zoom: 8
+        zoom: 12
       }
     }
 
@@ -32,6 +54,9 @@ class App extends Component {
     this.map = null
   }
 
+  /**
+   * make map full screen
+   */
   componentDidMount () {
     const node = this.appRef.current || {}
     const width = node.scrollWidth || 400
@@ -46,6 +71,19 @@ class App extends Component {
     })
   }
 
+  /**
+   * update map with latest data
+   * when updatedAt changes
+   */
+  componentDidUpdate (prevProps) {
+    if (this.props.updatedAt !== prevProps.updatedAt) {
+      if (this.map) {
+        const newGeoJson = mapCoordinatesToGeoJson(this.props.busCoordinates)
+        this.map.getSource('bus-locations').setData(newGeoJson)
+      }
+    }
+  }
+
   mapLoaded () {
     this.setState({ mapLoaded: true })
     this.map = this.mapRef.current &&
@@ -55,48 +93,20 @@ class App extends Component {
   }
 
   _addDataLayer () {
-    this.map.addSource('bus-locations', { type: 'geojson', data: {} })
+    this.map.addSource('bus-locations', {
+      type: 'geojson',
+      data: INIT_GEO_JSON
+    })
     this.map.addLayer({
       id: 'bus-locations',
       source: 'bus-locations',
       type: 'symbol',
-      layout: {
-        'icon-image': '{icon}-15',
-        'text-field': '{title}',
-        'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-        'text-offset': [0, 0.6],
-        'text-anchor': 'top'
-      }
+      layout: { 'icon-image': 'bus-11' }
     })
-
-    this._updateData(this.map)
   }
 
-  async _updateData (map) {
-    await this.props.fetchBuses()
-    const newData = {
-      type: 'FeatureCollection',
-      features: this.props.busLocations.map(location => {
-        return {
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: location },
-          properties: { icon: 'monument' }
-        }
-      })
-    }
-    console.log('newData', newData)
-    map
-      .getSource('bus-locations')
-      .setData(newData)
-
-    // function animateMarker (timestamp) {
-    //   let newValue = coordinates[0] + (incrementValue * timestamp / 100000)
-    //   busLocationsData.features[0].geometry.coordinates[0] = newValue
-    //   map.getSource('bus-locations').setData(busLocationsData)
-    //   window.requestAnimationFrame(animateMarker)
-    // }
-    //
-    // animateMarker(0)
+  handleUpdateClick (event) {
+    this.props.fetchBuses()
   }
 
   handleZoomInClick (event) {
@@ -146,6 +156,7 @@ class App extends Component {
             <button onClick={this.handleZoomInClick.bind(this)}>Zoom In</button>
             <button onClick={this.handleZoomOutClick.bind(this)}>Zoom Out</button>
           </div>
+          <button onClick={this.handleUpdateClick.bind(this)}>Update</button>
         </div>
       </div>
     )
@@ -153,7 +164,8 @@ class App extends Component {
 }
 
 App.propTypes = {
-  busLocations: PropTypes.array,
+  busCoordinates: PropTypes.array,
+  updatedAt: PropTypes.number,
   isLoading: PropTypes.bool,
   fetchBuses: PropTypes.func
 }
