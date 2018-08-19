@@ -2,9 +2,11 @@ require('dotenv').config()
 const proxy = require('express-http-proxy')
 const express = require('express')
 const app = express()
-const PORT = 4000
+const morgan = require('morgan')
+const PORT = process.env.PORT || 4000
 const APIKEY = process.env.REACT_APP_RTTI_APIKEY
 
+app.use(morgan('combined'))
 app.use('/api', proxy('api.translink.ca', {
   proxyReqPathResolver: function (req) {
     return `${req.url}?apikey=${APIKEY}`
